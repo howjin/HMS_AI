@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Record and Upload Audio</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #e0f2f1;
+            text-align: center;
+            padding: 50px;
+        }
+        .container {
+            margin: auto;
+            width: 80%;
+            padding: 10px;
+        }
+        .button {
+            border: none;
+            padding: 15px;
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            font-size: 16px;
+            margin: 4px 2px;
+            cursor: pointer;
+            background-color: transparent;
+        }
+        .button:focus {
+            outline: none;
+        }
+        .button img {
+            width: 100px;
+            height: 100px;
+        }
+        .button-label {
+            display: block;
+            margin-top: 8px;
+            font-size: 18px;
+            color: #333;
+        }
+        h1 {
+            color: #ab47bc;
+            margin-bottom: 50px;
+        }
+        audio {
+            display: none; /* Hide until there's something to play */
+        }
+        #downloadBtn, #uploadBtn {
+            display: none; /* Hide until recording is ready */
+            margin-top: 10px; /* Space between audio player and buttons */
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>HELP ME STUDY (AI)</h1>
+    <button id="toggleButton" class="button">
+        <img id="recordImg" src="rc.png" alt="Record">
+        <span class="button-label">Start Recording</span>
+    </button>
+    <audio id="audioPlayer" controls></audio>
+    <button id="downloadBtn" onclick="downloadAudio()">Download</button>
+    <button id="uploadBtn" onclick="uploadAudio()">Upload</button>
+</div>
+
+<script>
+let mediaRecorder;
+let audioChunks = [];
+let isRecording = false;
+let audioBlob;
+const audioPlayer = document.getElementById('audioPlayer');
+const downloadBtn = document.getElementById('downloadBtn');
+const uploadBtn = document.getElementById('uploadBtn');
+const recordImg = document.getElementById('recordImg');
+const startImg = 'rc.png';
+const stopImg = 'rs.png';
+
+document.getElementById('toggleButton').addEventListener('click', toggleRecording);
+
+function toggleRecording() {
+    if (isRecording) {
+        stopRecording();
+    } else {
+        startRecording();
+    }
+}
+
+function startRecording() {
+    navigator.mediaDevices.getUserMedia({ audio: true })
+        .then(stream => {
+            mediaRecorder = new MediaRecorder(stream);
+            mediaRecorder.start();
+            audioChunks = [];
+            isRecording = true;
+            recordImg.src = stopImg;
+            document.querySelector('.button-label').textContent = 'Stop Recording';
+
+            mediaRecorder.ondataavailable = function(event) {
+                audioChunks.push(event.data);
+            };
+
+            mediaRecorder.onstop = function() {
+                audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                const audioUrl = URL.createObjectURL(audioBlob);
+                audioPlayer.src = audioUrl;
+                audioPlayer.style.display = 'block'; // Show the player
+                downloadBtn.style.display = 'block'; // Show the download button
+                uploadBtn.style.display = 'block'; // Show the upload button
+                isRecording = false;
+                recordImg.src = startImg;
+                document.querySelector('.button-label').textContent = 'Start Recording';
+            };
+        })
+        .catch(e => console.error('Error accessing media devices.', e));
+}
+
+function stopRecording() {
+    if (mediaRecorder) {
+        mediaRecorder.stop();
+    }
+}
+
+function downloadAudio() {
+    const url = audioPlayer.src;
+    const a = document.createElement('a');
+    a.style.display = 'none';
+    a.href = url;
+    a.download = 'recording.webm';
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
+    document.body.removeChild(a);
+}
+
+async function uploadAudio() {
+    const formData = new FormData();
+    formData.append('audio', audioBlob, 'recording.webm');
+
+    const response = await fetch('/.netlify/functions/upload', {
+        method: 'POST',
+        body: formData
+    });
+
+    if (response.ok) {
+        alert('Audio uploaded successfully!');
+    } else {
+        alert('Failed to upload audio.');
+    }
+}
+</script>
+</body>
+</html>

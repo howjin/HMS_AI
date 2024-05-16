@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Timer</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin-top: 50px;
+        }
+        button, input {
+            padding: 10px 20px;
+            font-size: 16px;
+            margin: 5px;
+            cursor: pointer;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+        }
+        input {
+            padding: 10px;
+            width: 150px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Timer</h1>
+    <input type="number" id="timeInput" placeholder="Enter time in minutes" min="1" required>
+    <button onclick="startTimer()">Start Timer</button>
+    <h2 id="timerDisplay">00:00</h2>
+    <audio id="alarmSound" src="alarm.mp3"></audio> <!-- Add your own sound file here -->
+    <button onclick="stopSound()">Stop Alarm</button> <!-- Button to stop the alarm sound -->
+
+    <script>
+        let countdown;
+        let soundInterval;
+
+        function startTimer() {
+            clearInterval(countdown); // Clear any existing timers
+            clearInterval(soundInterval); // Clear any existing sound interval
+            const minutes = parseInt(document.getElementById('timeInput').value);
+            let timeInSeconds = minutes * 60;
+            const endTime = Date.now() + timeInSeconds * 1000;
+            displayTime(timeInSeconds); // Display initial time
+
+            countdown = setInterval(() => {
+                timeInSeconds = Math.round((endTime - Date.now()) / 1000);
+                if (timeInSeconds < 0) {
+                    clearInterval(countdown);
+                    playSound();
+                    soundInterval = setInterval(() => {
+                        playSound(); // Play sound repeatedly until stopped
+                    }, 1000);
+                    document.getElementById('timerDisplay').textContent = "00:00";
+                    return;
+                }
+                displayTime(timeInSeconds);
+            }, 1000);
+        }
+
+        function displayTime(seconds) {
+            const minutes = Math.floor(seconds / 60);
+            const remainderSeconds = seconds % 60;
+            const display = `${pad(minutes)}:${pad(remainderSeconds)}`;
+            document.getElementById('timerDisplay').textContent = display;
+        }
+
+        function pad(number) {
+            return number < 10 ? '0' + number : number;
+        }
+
+        function playSound() {
+            const sound = document.getElementById('alarmSound');
+            sound.play();
+        }
+
+        function stopSound() {
+            const sound = document.getElementById('alarmSound');
+            sound.pause();
+            sound.currentTime = 0;
+            clearInterval(soundInterval); // Stop the sound interval
+        }
+    </script>
+</body>
+</html>

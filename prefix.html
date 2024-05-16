@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
+
+  <script type="module">
+    const videoElement = document.getElementsByClassName('input_video')[0];
+    const canvasElement = document.getElementsByClassName('output_canvas')[0];
+    const canvasCtx = canvasElement.getContext('2d');
+
+    let timeoutID = null; // Store the timeout, so we can cancel it
+
+    function detectarPiscada(keypoints) {
+      const leftEyeIndices = [263, 362, 386, 374];
+      const rightEyeIndices = [133, 33, 159, 145];
+
+      const earLeft = calculateEAR(keypoints, ...leftEyeIndices);
+      const earRight = calculateEAR(keypoints, ...rightEyeIndices);
+
+      const bothEyesClosed = earLeft < 0.1 && earRight < 0.1;
+
+      if (bothEyesClosed) {
+        if (timeoutID === null) { // Check if a new timeout should be started
+          timeoutID = setTimeout(() => {
+            play(); // Play audio if the timeout completes without interruption
+            timeoutID = null; // Reset the timeout ID
+          }, 5000);
+        }
+      } else {
+        if (timeoutID) {
+          clearTimeout(timeoutID);
+          timeoutID = null;
+        }
+      }
+    }
+
+    function play() {
+      var audio = document.getElementById('audioPlayer');
+      audio.play();
+    }
+
+    function calculateEAR(keypoints, left, right, top, bottom) {
+      const horizontal = euclidean_dist(keypoints[left].x, keypoints[left].y, keypoints[right].x, keypoints[right].y);
+      const vertical = euclidean_dist(keypoints[top].x, keypoints[top].y, keypoints[bottom].x, keypoints[bottom].y);
+      return vertical / (2 * horizontal); // Calculate Eye Aspect Ratio
+    }
+
+    function euclidean_dist(x1, y1, x2, y2) {
+      return Math.sqrt(Math.pow((x1 - x2), 2) + Math.pow((y1 - y2), 2));
+    }
+
+    function onResults(results) {
+      canvasCtx.save();
+      canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+      canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
+      if (results.multiFaceLandmarks) {
+        for (const landmarks of results.multiFaceLandmarks) {
+          drawConnectors(canvasCtx, landmarks, FACEMESH_RIGHT_EYE, {color: '#FF3030'});
+          drawConnectors(canvasCtx, landmarks, FACEMESH_LEFT_EYE, {color: '#30FF30'});
+          detectarPiscada(landmarks);
+        }
+      }
+      canvasCtx.restore();
+    }
+
+    const faceMesh = new FaceMesh({locateFile: (file) => {
+      return `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`;
+    }});
+    faceMesh.setOptions({
+      maxNumFaces: 1,
+      refineLandmarks: true,
+      minDetectionConfidence: 0.5,
+      minTrackingConfidence: 0.5
+    });
+    faceMesh.onResults(onResults);
+
+    const camera = new Camera(videoElement, {
+      onFrame: async () => {
+        await faceMesh.send({image: videoElement});
+      },
+      width: 1280,
+      height: 720
+    });
+
+    document.getElementById('start_button').addEventListener('click', () => camera.start());
+    document.getElementById('stop_button').addEventListener('click', () => camera.stop());
+  </script>
+</head>
+<body>
+  <div class="container">
+    <video class="input_video" width="0" height="0"></video>
+    <canvas class="output_canvas" width="1280px" height="720px"></canvas>
+    <button id="start_button">Start</button>
+    <button id="stop_button">Stop</button>
+    <audio id="audioPlayer" src="/Users/howjin/Downloads/recording.webm"></audio>
+  </div>
+</body>
+</html>
